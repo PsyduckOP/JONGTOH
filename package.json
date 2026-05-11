@@ -1,0 +1,13 @@
+{
+  "name": "jongtoh-monorepo",
+  "version": "1.0.0",
+  "scripts": {
+    "infra": "docker-compose up -d",
+    "backend": "npm --prefix apps/backend run start:dev",
+    "frontend": "npm --prefix apps/frontend run dev",
+    "dev": "npx concurrently \"npm run infra\" \"npm run backend\" \"npm run frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
