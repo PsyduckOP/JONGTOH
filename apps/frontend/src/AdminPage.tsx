@@ -26,17 +26,23 @@ interface Booking {
   id: number;
   bookingCode: string;
   customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  specialRequests: string;
   status: string;
   table: { number: string };
   startTime: string;
+  createdAt: string;
 }
 
 const AdminPage: React.FC = () => {
   const [tables, setTables] = useState<Table[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, available: 0, reserved: 0 });
 
   useEffect(() => {
+    document.title = 'backend';
     fetchData();
     socket.on('table_updated', fetchData);
     return () => { socket.off('table_updated'); };
@@ -44,9 +50,13 @@ const AdminPage: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const res = await axios.get(`${API_URL}/tables`);
-      const data = res.data;
+      const [resTables, resBookings] = await Promise.all([
+        axios.get(`${API_URL}/tables`),
+        axios.get(`${API_URL}/bookings`)
+      ]);
+      const data = resTables.data;
       setTables(data);
+      setBookings(resBookings.data);
       setStats({
         total: data.length,
         available: data.filter((t: any) => t.status === 'available').length,
@@ -137,6 +147,70 @@ const AdminPage: React.FC = () => {
               </motion.div>
             ))}
           </AnimatePresence>
+        </div>
+
+        {/* Recent Bookings */}
+        <div className="mt-16">
+          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+            <User size={20} className="text-emerald-500" />
+            รายละเอียดการจองล่าสุด
+          </h2>
+          
+          <div className="glass-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-white/5 border-b border-white/5 text-gray-400 text-sm">
+                    <th className="p-6 font-bold whitespace-nowrap">เวลาที่จอง</th>
+                    <th className="p-6 font-bold whitespace-nowrap">รหัส/โต๊ะ</th>
+                    <th className="p-6 font-bold whitespace-nowrap">ข้อมูลลูกค้า</th>
+                    <th className="p-6 font-bold whitespace-nowrap">ความต้องการพิเศษ</th>
+                    <th className="p-6 font-bold whitespace-nowrap">สถานะ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {bookings.map((booking) => (
+                    <tr key={booking.id} className="hover:bg-white/5 transition-colors">
+                      <td className="p-6">
+                        <div className="text-sm font-bold">{new Date(booking.startTime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div className="text-xs text-gray-500">{new Date(booking.startTime).toLocaleDateString('th-TH')}</div>
+                      </td>
+                      <td className="p-6">
+                        <div className="text-blue-400 font-bold mb-1">{booking.bookingCode}</div>
+                        <div className="text-sm text-gray-400">โต๊ะ {booking.table?.number || '-'}</div>
+                      </td>
+                      <td className="p-6">
+                        <div className="font-bold">{booking.customerName}</div>
+                        <div className="text-sm text-gray-400">{booking.customerPhone}</div>
+                        {booking.customerEmail && <div className="text-xs text-gray-500">{booking.customerEmail}</div>}
+                      </td>
+                      <td className="p-6">
+                        <div className="text-sm text-amber-400 max-w-[200px] truncate" title={booking.specialRequests}>
+                          {booking.specialRequests || '-'}
+                        </div>
+                      </td>
+                      <td className="p-6">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          booking.status === 'confirmed' ? 'bg-emerald-500/20 text-emerald-400' :
+                          booking.status === 'cancelled' ? 'bg-red-500/20 text-red-400' :
+                          'bg-amber-500/20 text-amber-400'
+                        }`}>
+                          {booking.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {bookings.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-gray-500">
+                        ยังไม่มีข้อมูลการจองในระบบ
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </main>
 

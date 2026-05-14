@@ -22,6 +22,15 @@ export class BookingsService {
     private dataSource: DataSource,
   ) {}
 
+  async findAll() {
+    return this.bookingsRepository.find({
+      relations: ['table'],
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
+
   async createBookingRequest(data: CreateBookingDto) {
     // Check if device already has a confirmed booking
     if (!data.deviceId) {
@@ -74,6 +83,9 @@ export class BookingsService {
       booking.bookingCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       booking.table = table;
       booking.customerName = data.customerName;
+      booking.customerPhone = data.customerPhone || '';
+      booking.customerEmail = data.customerEmail || '';
+      booking.specialRequests = data.specialRequests || '';
       booking.deviceId = data.deviceId;
       booking.startTime = data.startTime;
       booking.endTime = data.endTime;

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -8,6 +8,13 @@ import { EventPattern, Payload } from '@nestjs/microservices';
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Get all bookings' })
+  @ApiResponse({ status: 200, description: 'List of all bookings returned.' })
+  async findAll() {
+    return this.bookingsService.findAll();
+  }
 
   @Post()
   @ApiOperation({ summary: 'Request a new table booking' })

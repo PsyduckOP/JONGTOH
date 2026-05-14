@@ -21,6 +21,15 @@ export class Booking {
   @Column()
   customerName: string;
 
+  @Column({ default: '' })
+  customerPhone: string;
+
+  @Column({ nullable: true })
+  customerEmail: string;
+
+  @Column({ type: 'text', nullable: true })
+  specialRequests: string;
+
   @Column({ nullable: true })
   deviceId: string;
 

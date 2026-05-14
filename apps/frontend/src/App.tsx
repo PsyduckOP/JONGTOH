@@ -13,7 +13,8 @@ import {
   ChevronRight,
   Coffee,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 
 const API_URL = 'http://localhost:3000';
@@ -34,7 +35,19 @@ const CustomerPage: React.FC = () => {
   const [deviceId, setDeviceId] = useState<string>('');
   const [activeBooking, setActiveBooking] = useState<{ id: number; tableNumber: string } | null>(null);
 
+  // Modal & Form States
+  const [showModal, setShowModal] = useState(false);
+  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [bookingTime, setBookingTime] = useState('11:00');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [specialRequests, setSpecialRequests] = useState('');
+
   useEffect(() => {
+    document.title = 'frontend';
+    
     // Get or create Device ID
     let id = localStorage.getItem('jongtoh_device_id');
     if (!id) {
@@ -87,9 +100,37 @@ const CustomerPage: React.FC = () => {
     }
   };
 
-  const handleBooking = async (tableId: number) => {
-    const table = tables.find(t => t.id === tableId);
-    if (!table || table.status !== 'available') return;
+  const openBookingModal = (table: Table) => {
+    if (activeBooking) {
+      setBookingMessage('คุณมีการจองโต๊ะอยู่แล้ว ไม่สามารถจองเพิ่มได้');
+      setTimeout(() => setBookingMessage(null), 5000);
+      return;
+    }
+    if (table.status !== 'available') return;
+    setSelectedTable(table);
+    setShowModal(true);
+  };
+
+  const closeBookingModal = () => {
+    setShowModal(false);
+    setSelectedTable(null);
+    setCustomerName('');
+    setCustomerPhone('');
+    setCustomerEmail('');
+    setSpecialRequests('');
+    setBookingDate(new Date().toISOString().split('T')[0]);
+    setBookingTime('11:00');
+  };
+
+  const submitBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTable) return;
+
+    const tableId = selectedTable.id;
+    const startDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
+    const endDateTime = new Date(startDateTime.getTime() + 90 * 60000); // +1.5h
+
+    setShowModal(false);
 
     setTables((prev) =>
       prev.map((t) => (t.id === tableId ? { ...t, status: 'pending' } : t))
@@ -98,11 +139,15 @@ const CustomerPage: React.FC = () => {
     try {
       await axios.post(`${API_URL}/bookings`, {
         tableId,
-        customerName: 'Guest User',
+        customerName,
+        customerPhone,
+        customerEmail,
+        specialRequests,
         deviceId,
-        startTime: new Date(),
-        endTime: new Date(Date.now() + 3600000),
+        startTime: startDateTime,
+        endTime: endDateTime,
       });
+      closeBookingModal();
     } catch (error: any) {
       setTables((prev) =>
         prev.map((t) => (t.id === tableId ? { ...t, status: 'available' } : t))
@@ -228,9 +273,9 @@ const CustomerPage: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                     whileHover={table.status === 'available' ? { y: -8 } : {}}
-                    onClick={() => handleBooking(table.id)}
+                    onClick={() => openBookingModal(table)}
                     className={`glass-card p-8 group relative ${
-                      table.status === 'available' ? 'cursor-pointer' : 'cursor-not-allowed grayscale-[0.5]'
+                      table.status === 'available' && !activeBooking ? 'cursor-pointer' : 'cursor-not-allowed grayscale-[0.5]'
                     }`}
                   >
                     <div className="flex justify-between items-start mb-10">
@@ -267,7 +312,7 @@ const CustomerPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {table.status === 'available' ? (
+                    {table.status === 'available' && !activeBooking ? (
                       <div className="flex items-center justify-between group-hover:text-blue-400 transition-colors">
                         <span className="text-sm font-bold uppercase tracking-wider">กดเพื่อจองโต๊ะ</span>
                         <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
@@ -294,6 +339,135 @@ const CustomerPage: React.FC = () => {
             </div>
           )}
         </main>
+
+        {/* Booking Modal */}
+        <AnimatePresence>
+          {showModal && selectedTable && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+              onClick={closeBookingModal}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="glass-card w-full max-w-xl p-8 relative max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button 
+                  onClick={closeBookingModal}
+                  className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
+                >
+                  <X size={24} />
+                </button>
+
+                <div className="mb-8">
+                  <h2 className="text-3xl font-black text-white mb-2">จองโต๊ะ {selectedTable.number}</h2>
+                  <p className="text-gray-400">กรุณากรอกข้อมูลเพื่อยืนยันการจอง</p>
+                </div>
+
+                <form onSubmit={submitBooking} className="space-y-6">
+                  {/* Date & Time Selection */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-300">วันที่</label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input 
+                          type="date" 
+                          required
+                          value={bookingDate}
+                          onChange={(e) => setBookingDate(e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-blue-500 transition-colors [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-300">เวลา (ระบุช่วงเวลาว่าง)</label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <select
+                          required
+                          value={bookingTime}
+                          onChange={(e) => setBookingTime(e.target.value)}
+                          className="w-full bg-slate-800 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-blue-500 transition-colors appearance-none"
+                        >
+                          <option value="11:00">11:00 - 12:30</option>
+                          <option value="12:30">12:30 - 14:00</option>
+                          <option value="14:00">14:00 - 15:30</option>
+                          <option value="17:00">17:00 - 18:30</option>
+                          <option value="18:30">18:30 - 20:00</option>
+                          <option value="20:00">20:00 - 21:30</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Info */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-300">ชื่อผู้จอง <span className="text-red-400">*</span></label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="ชื่อ-นามสกุล"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-300">เบอร์โทรศัพท์ <span className="text-red-400">*</span></label>
+                        <input 
+                          type="tel" 
+                          required
+                          placeholder="08X-XXX-XXXX"
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-300">อีเมล</label>
+                        <input 
+                          type="email" 
+                          placeholder="example@email.com (ไม่บังคับ)"
+                          value={customerEmail}
+                          onChange={(e) => setCustomerEmail(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Special Requests */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-300">ความต้องการพิเศษ</label>
+                    <textarea 
+                      rows={3}
+                      placeholder="เช่น แพ้อาหารทะเล, ขอเก้าอี้เด็ก, ต้องการวีลแชร์"
+                      value={specialRequests}
+                      onChange={(e) => setSpecialRequests(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                    />
+                  </div>
+
+                  <button 
+                    type="submit"
+                    className="w-full py-4 mt-4 bg-gradient-to-r from-blue-500 to-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all active:scale-[0.98]"
+                  >
+                    ยืนยันการจองโต๊ะ
+                  </button>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <footer className="mt-32 pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 text-gray-500 text-sm">
           <div className="flex items-center gap-2">
